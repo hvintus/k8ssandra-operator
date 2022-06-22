@@ -3,10 +3,12 @@ package k8ssandra
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	cassdcapi "github.com/k8ssandra/cass-operator/apis/cassandra/v1beta1"
 	api "github.com/k8ssandra/k8ssandra-operator/apis/k8ssandra/v1alpha1"
 	"github.com/k8ssandra/k8ssandra-operator/pkg/annotations"
+	"github.com/k8ssandra/k8ssandra-operator/pkg/labels"
 	"github.com/k8ssandra/k8ssandra-operator/pkg/result"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -128,9 +130,12 @@ func newEndpoints(dc *cassdcapi.CassandraDatacenter, seeds []corev1.Pod, additio
 
 	addresses := make([]corev1.EndpointAddress, 0, len(seeds))
 	for _, seed := range seeds {
-		addresses = append(addresses, corev1.EndpointAddress{
-			IP: seed.Status.PodIP,
-		})
+		// When building endpoints for `dc`, exclude pods gathered from the `dc` itself.
+		if labels.GetLabel(&seed, cassdcapi.DatacenterLabel) != dc.Name {
+			addresses = append(addresses, corev1.EndpointAddress{
+				IP: seed.Status.PodIP,
+			})
+		}
 	}
 
 	for _, seed := range additionalSeeds {
